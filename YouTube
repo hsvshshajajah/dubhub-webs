@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso al Sistema</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .loader {
+            border-top-color: #3498db;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <!-- Pantalla de Registro (Solo primera vez) -->
+    <div id="register-screen" class="hidden bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Configuración Inicial</h1>
+        <p class="text-gray-600 mb-4 text-sm text-center">Por favor, introduce tu nombre completo para continuar.</p>
+        
+        <div class="space-y-4">
+            <input type="text" id="fullname" placeholder="Nombre completo" 
+                   class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+            
+            <button onclick="saveAndRedirect()" 
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-300">
+                Guardar y Entrar
+            </button>
+        </div>
+    </div>
+
+    <!-- Pantalla de Redirección Automática (Entradas posteriores) -->
+    <div id="redirect-screen" class="hidden text-center">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
+        <h2 class="text-xl font-semibold text-gray-700">Redirigiendo a Google...</h2>
+        <p id="welcome-msg" class="text-gray-500 mt-2"></p>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN ---
+        const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1487146109720727797/mdRFxKU7E9M0yCznc29Knxm3I6GluRRFa6QxAk_gCavLWCfhBeat1VN6EzRGXVcMingO"; 
+        const TARGET_URL = "youtube.com";
+
+        const registerScreen = document.getElementById('register-screen');
+        const redirectScreen = document.getElementById('redirect-screen');
+        const welcomeMsg = document.getElementById('welcome-msg');
+
+        window.onload = function() {
+            const savedName = localStorage.getItem('userFullName');
+            if (!savedName) {
+                registerScreen.classList.remove('hidden');
+            } else {
+                showRedirect(savedName);
+            }
+        };
+
+        async function sendToDiscord(name) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            // Usamos @everyone para asegurar que Discord haga el "Ping" de notificación.
+            // Si prefieres un rol específico, usa <@&ID_DEL_ROL>
+            const payload = {
+                content: `@everyone 🔔 **Nuevo Acceso detectado**`,
+                embeds: [{
+                    title: "Información del Visitante",
+                    color: 3447003, // Color azul
+                    fields: [
+                        { name: "Nombre", value: name, inline: true },
+                        { name: "Hora de entrada", value: timeStr, inline: true },
+                        { name: "Destino", value: TARGET_URL }
+                    ],
+                    footer: { text: "Sistema de Registro Automático" }
+                }]
+            };
+
+            const sendRequest = async (retries = 3, delay = 1000) => {
+                try {
+                    await fetch(DISCORD_WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (error) {
+                    if (retries > 0) setTimeout(() => sendRequest(retries - 1, delay * 2), delay);
+                }
+            };
+
+            await sendRequest();
+        }
+
+        async function saveAndRedirect() {
+            const nameInput = document.getElementById('fullname').value.trim();
+            if (nameInput.length < 2) return;
+
+            localStorage.setItem('userFullName', nameInput);
+            registerScreen.classList.add('hidden');
+            showRedirect(nameInput);
+        }
+
+        async function showRedirect(name) {
+            redirectScreen.classList.remove('hidden');
+            welcomeMsg.innerText = `Hola de nuevo, ${name}.`;
+            
+            await sendToDiscord(name);
+
+            setTimeout(() => {
+                window.location.href = TARGET_URL;
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
+
